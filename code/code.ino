@@ -2,12 +2,10 @@
 #include "DHT.h"
 #include <Wire.h>              // include Wire library (required for I2C devices)
 #include <Adafruit_BMP280.h>   // include Adafruit BMP280 sensor library
+#include <BH1750.h>            // include Light Sensor
 
 // define device I2C address: 0x76 or 0x77 (0x77 is library default address)
 #define BMP280_I2C_ADDRESS  0x76
-
-// initialize Adafruit BMP280 library
-Adafruit_BMP280  bmp280;
 
 #define DHTPIN D1
 #define DHTTYPE DHT11 
@@ -15,7 +13,11 @@ Adafruit_BMP280  bmp280;
 const char* ssid     = "SLT_FIBRE";
 const char* password = "manager11";
 const char* host = "iot4cast.000webhostapp.com";
+
+// initialize sensor libraries
+Adafruit_BMP280  bmp280;
 DHT dht(DHTPIN, DHTTYPE);
+BH1750 lightMeter;
 
 void setup() {
   Serial.begin(115200);
@@ -38,6 +40,13 @@ void setup() {
     Serial.println("BMP280 Error");
     while(1);// stay here
   }
+
+  if (!lightMeter.begin())
+  {
+    //connection error!
+    Serial.println("BH1750 Error");
+    while(1);//stay here
+  }
  
   Serial.println("");
   Serial.println("WiFi connected");  
@@ -49,11 +58,15 @@ void setup() {
   Serial.println(WiFi.gatewayIP());
 }
 void loop() {
+  // Read humidity
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
-
+  // Read pressure in Pascal
   float p = bmp280.readPressure();
+  // Read Ambient Light in lux
+  float l = lightMeter.readLightLevel();
+  
   if (isnan(h) || isnan(t)) {
     Serial.println("Failed to read from DHT sensor!");
     return;
@@ -69,10 +82,10 @@ void loop() {
     return;
   }
   
-  String url = "/api/weather/insert.php?temp=" + String(t) + "&humidity=" + String(h) + "&pressure=" + String(p);
+  String url = "/api/weather/insert.php?temp=" + String(t) + "&humidity=" + String(h) + "&pressure=" + String(p)+ "&light=" + String(l);
   Serial.print("Requesting URL: ");
   Serial.println(url);
-  
+ 
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" + 
                "Connection: close\r\n\r\n");
