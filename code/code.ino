@@ -1,5 +1,13 @@
 #include <ESP8266WiFi.h>
 #include "DHT.h"
+#include <Wire.h>              // include Wire library (required for I2C devices)
+#include <Adafruit_BMP280.h>   // include Adafruit BMP280 sensor library
+
+// define device I2C address: 0x76 or 0x77 (0x77 is library default address)
+#define BMP280_I2C_ADDRESS  0x76
+
+// initialize Adafruit BMP280 library
+Adafruit_BMP280  bmp280;
 
 #define DHTPIN D1
 #define DHTTYPE DHT11 
@@ -23,6 +31,13 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
+  
+  Wire.begin(D6, D5);  // set I2C pins [SDA = D6, SCL = D5], default clock is 100kHz
+  if ( !bmp280.begin(BMP280_I2C_ADDRESS) )
+  {  // connection error!
+    Serial.println("BMP280 Error");
+    while(1);// stay here
+  }
  
   Serial.println("");
   Serial.println("WiFi connected");  
@@ -37,6 +52,8 @@ void loop() {
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
+
+  float p = bmp280.readPressure();
   if (isnan(h) || isnan(t)) {
     Serial.println("Failed to read from DHT sensor!");
     return;
@@ -52,7 +69,7 @@ void loop() {
     return;
   }
   
-  String url = "/api/weather/insert.php?temp=" + String(t) + "&humidity="+ String(h);
+  String url = "/api/weather/insert.php?temp=" + String(t) + "&humidity=" + String(h) + "&pressure=" + String(p);
   Serial.print("Requesting URL: ");
   Serial.println(url);
   
@@ -68,5 +85,5 @@ void loop() {
   
   Serial.println();
   Serial.println("closing connection");
-  delay(900000);
+  delay(60000);
 }
