@@ -10,9 +10,9 @@
 #define DHTPIN D1
 #define DHTTYPE DHT11 
 
-const char* ssid     = "SLT_FIBRE";
-const char* password = "manager11";
-const char* host = "192.168.1.4";
+const char* ssid     = "Stormbreaker";
+const char* password = "pin12345";
+const char* host = "936816ca28f9.ngrok.io";
 
 // initialize sensor libraries
 Adafruit_BMP280  bmp280;
@@ -31,10 +31,11 @@ void setup() {
   Serial.println(ssid);
   
   WiFi.begin(ssid, password); 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  
+//  while (WiFi.status() != WL_CONNECTED) {
+//    delay(500);
+//    Serial.print(".");
+//  }
 
   Wire.begin(D6, D5);  // set I2C pins [SDA = D6, SCL = D5], default clock is 100kHz
   
@@ -51,6 +52,7 @@ void setup() {
     Serial.println("BH1750 Error");
     while(1);//stay here
   }
+
  
   Serial.println("");
   Serial.println("WiFi connected");  
@@ -64,67 +66,112 @@ void setup() {
 
 
 void loop() {
-  
-  // declare humidity
-  float h;
-  
-  // declare temperature
-  float t;
-  
-  // declare pressure
-  float p;
-  
-  // declare Ambient Light
-  float l;
 
-  if (WiFi.status() == WL_CONNECTED) {
-
+  
+    float h=0;
+    float t=0;
+    float p=0;
+    float l=0;
+    
     for(int i = 0; i<15; i++) {
-    Serial.println(i);
-    // Read humidity
-    h += dht.readHumidity();
-    
-    // Read temperature as Celsius (the default)
-    t += dht.readTemperature();
-    
-    // Read pressure in Pascal
-    p += bmp280.readPressure();
-    
-    // Read Ambient Light in lux
-    l += lightMeter.readLightLevel();
-    
-    Serial.println(h);
-    Serial.println(t);
-    Serial.println(p);
-    Serial.println(l);
-    Serial.println("I'm await but sleeping for 60 seconds...");
-    delay(6000); 
+      Serial.println(i);
+      // Read humidity
+      h += dht.readHumidity();
+      
+      // Read temperature as Celsius (the default)
+      t += dht.readTemperature();
+      
+      // Read pressure in Pascal
+      p += bmp280.readPressure();
+      
+      // Read Ambient Light in lux
+      l += lightMeter.readLightLevel();      
+      Serial.println("I'm awake but sleeping for 60 seconds...");
+      delay(60000); 
     }
-  
+
+    if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+    }
   
     Serial.println("calculating average...");
     
-    h = h/15;
     t = t/15;
+    h = h/15;
     p = p/15;
     l = l/15;
   
-    Serial.println(h);
-    Serial.println(t);
-    Serial.println(p);
-    Serial.println(l);    
     
-    Serial.println("sending data...");
-    //sendXML(t, h, p, l);
+
+  if (WiFi.status() == WL_CONNECTED) { 
+    
+    Serial.println("sending data...");  
+    sendXML(t, h, p, l);   
     
   } else {
-    int Matrix[100][4];
+    float Matrix[100][4];
+    int counter = 0;
+    Serial.println("No Wifi....Starting Caching...");
     while (WiFi.status() != WL_CONNECTED) {
       
+      Serial.print("No Wifi....Caching: ");
+      Serial.println(counter);
+      
+      float h_cache=0;
+      float t_cache=0;
+      float p_cache=0;
+      float l_cache=0;
+      for(int i = 0; i<15; i++) {
+        Serial.println(i);
+        // Read humidity
+        h_cache += dht.readHumidity();
+        
+        // Read temperature as Celsius (the default)
+        t_cache += dht.readTemperature();
+        
+        // Read pressure in Pascal
+        p_cache += bmp280.readPressure();
+        
+        // Read Ambient Light in lux
+        l_cache += lightMeter.readLightLevel();
+       
+        Serial.println("I'm awake but sleeping for 60 seconds...");
+        delay(60000); 
+      }
+      Serial.println("calculating average...");
+    
+      t_cache = t_cache/15;
+      h_cache = h_cache/15;
+      p_cache = p_cache/15;
+      l_cache = l_cache/15;
+
+      Matrix[counter][0] = t_cache;
+      Matrix[counter][1] = h_cache;
+      Matrix[counter][2] = p_cache;
+      Matrix[counter][3] = l_cache; 
+        
+      Serial.println(">");
+      counter++;
+    }
+    
+    Serial.println("Got back Connection.....");
+    
+    if(h!=0){
+      Serial.println("sending first data...");  
+      sendXML(t, h, p, l);
+    }
+    
+    for ( int i = 0; i < counter; ++i ) {
+
+      Serial.println("sending cached data...");  
+      Serial.println(i);
+      Serial.println("sending data...");
+      sendXML(Matrix[i][0], Matrix[i][1], Matrix[i][2], Matrix[i][3]);
       delay(500);
-      Serial.print(">");
       
     }
+    
   }
 }
 
